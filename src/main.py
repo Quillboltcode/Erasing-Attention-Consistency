@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import argparse
 import pickle
-
+import wandb
 import torch
 import torch.nn as nn
 from torchvision import transforms
@@ -168,6 +168,8 @@ def main():
     optimizer = torch.optim.Adam(model.parameters() , lr=0.0001, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
+    run = wandb.init(project='raf-db', name='rebuttal_50_noise_'+str(args.label_path),
+                     config={'batch_size': args.batch_size, 'epochs': args.epochs, 'lr': 0.0001, 'weight_decay': 1e-4})
     
    
     
@@ -175,8 +177,10 @@ def main():
     for i in range(1, args.epochs + 1):
         train_acc, train_loss = train(args, model, train_loader, optimizer, scheduler, device)
         test_acc, test_loss = test(model, test_loader, device)
+        wandb.log({'Epoch': i, 'Train Loss': train_loss, 'Train Acc': train_acc, 'Test Loss': test_loss, 'Test Acc': test_acc})
         with open('rebuttal_50_noise_'+str(args.label_path)+'.txt', 'a') as f:
             f.write(str(i)+'_'+str(test_acc)+'\n')
+    run.finish()
 
 
 
