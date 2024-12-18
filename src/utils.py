@@ -5,6 +5,23 @@ import random
 
 
 def add_g(image_array, mean=0.0, var=30):
+    """
+    Add Gaussian noise to an image array.
+
+    Parameters
+    ----------
+    image_array : np.ndarray
+        Input image array.
+    mean : float, optional
+        Mean of the Gaussian noise. Defaults to 0.0.
+    var : float, optional
+        Variance of the Gaussian noise. Defaults to 30.
+
+    Returns
+    -------
+    np.ndarray
+        Noisy image array.
+    """
     std = var ** 0.5
     image_add = image_array + np.random.normal(mean, std, image_array.shape)
     image_add = np.clip(image_add, 0, 255).astype(np.uint8)

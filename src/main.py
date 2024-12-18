@@ -196,7 +196,7 @@ def main():
             test_labels.extend(labels.cpu().numpy())
             test_preds.extend(predicts.cpu().numpy())
     test_cm = confusion_matrix(test_labels, test_preds)
-    class_names = ['Neutral', 'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise']
+    class_names = ['1', '2', '3', '4', '5', '6', '7']
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(test_cm, annot=True, cmap='Blues')
 
