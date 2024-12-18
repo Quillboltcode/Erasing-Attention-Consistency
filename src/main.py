@@ -16,6 +16,9 @@ from torchvision import transforms
 import torchvision.models as models
 import torch.utils.data as data
 import torch.nn.functional as F
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from dataset import RafDataset
 from model import Model
@@ -180,6 +183,31 @@ def main():
         wandb.log({'Epoch': i, 'Train Loss': train_loss, 'Train Acc': train_acc, 'Test Loss': test_loss, 'Test Acc': test_acc})
         with open('rebuttal_50_noise_'+str(args.label_path)+'.txt', 'a') as f:
             f.write(str(i)+'_'+str(test_acc)+'\n')
+    
+    test_labels = []
+    test_preds = []
+    with torch.no_grad():
+        model.eval()
+        for batch_i, (imgs1, labels, indexes, imgs2) in enumerate(test_loader):
+            imgs1 = imgs1.to(device)
+            labels = labels.to(device)
+            output, _ = model(imgs1)
+            _, predicts = torch.max(output, 1)
+            test_labels.extend(labels.cpu().numpy())
+            test_preds.extend(predicts.cpu().numpy())
+    test_cm = confusion_matrix(test_labels, test_preds)
+    class_names = ['Neutral', 'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise']
+    fig, ax = plt.subplots(figsize=(10, 10))
+    sns.heatmap(test_cm, annot=True, cmap='Blues')
+
+    # Labels, title and custom x-axis labels
+    ax.set_xlabel('Predicted labels')
+    ax.set_ylabel('True labels')
+    ax.set_title('Confusion Matrix')
+    ax.xaxis.set_ticklabels(class_names)
+    ax.yaxis.set_ticklabels(class_names)
+    plt.savefig('conf_mat.png', dpi=300)
+    wandb.log({"Confusion Matrix": [wandb.Image("conf_mat.png", caption="Confusion Matrix")]})
     run.finish()
 
 
