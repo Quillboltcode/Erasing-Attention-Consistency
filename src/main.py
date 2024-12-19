@@ -37,6 +37,7 @@ parser.add_argument('--h', type=int, default=7, help='height of the attention ma
 parser.add_argument('--gpu', type=int, default=0, help='the number of the device')
 parser.add_argument('--lam', type=float, default=5, help='kl_lambda')
 parser.add_argument('--epochs', type=int, default=60, help='number of epochs')
+parser.add_argument('--ratio', '-r', type=float, default=0.3, help='ratio of label shuffle in training only 0,0.1,0.2,0.3')
 args = parser.parse_args()
 
 
@@ -145,7 +146,7 @@ def main():
     
     
 
-    train_dataset = RafDataset(args, phase='train', transform=train_transforms)
+    train_dataset = RafDataset(args, ratio=args.ratio, phase='train', transform=train_transforms)
     test_dataset = RafDataset(args, phase='test', transform=eval_transforms)
     
 
@@ -172,7 +173,7 @@ def main():
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
     run = wandb.init(project='raf-db', name='rebuttal_50_noise_'+str(args.label_path),
-                     config={'batch_size': args.batch_size, 'epochs': args.epochs, 'lr': 0.0001, 'weight_decay': 1e-4})
+                     config={'batch_size': args.batch_size, 'epochs': args.epochs, 'lr': 0.0001, 'weight_decay': 1e-4, 'ratio': args.ratio})
     
    
     

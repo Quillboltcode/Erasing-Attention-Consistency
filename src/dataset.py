@@ -8,7 +8,7 @@ from torchvision import transforms
 from utils import *
 
 class RafDataset(data.Dataset):
-    def __init__(self, args, phase, basic_aug=True, transform=None):
+    def __init__(self, args, phase,ratio=0.0, basic_aug=True, transform=None):
         """
         Args:
             args: Arguments containing dataset configuration.
@@ -20,7 +20,7 @@ class RafDataset(data.Dataset):
         self.phase = phase
         self.basic_aug = basic_aug
         self.transform = transform
-
+        self.ratio = ratio
         # Define image directories
         self.image_dir = os.path.join(self.raf_path, phase)
 
@@ -41,8 +41,14 @@ class RafDataset(data.Dataset):
         # self.file_paths = []
         self.clean = (args.label_path == 'list_patition_label.txt')
         
-
-
+    #todo Randomly with ratio and seed change old lable to one of the other
+    def labelshuffle(self):
+        # random.seed(seed)
+        num_labels = len(set(self.labels))
+        for i in range(len(self.labels)):
+            if random.uniform(0,1) < self.ratio:
+                new_label = random.choice(list(set(range(num_labels)) - {self.labels[i]}))
+                self.labels[i] = new_label
 
     def __len__(self):
         return len(self.file_paths)
