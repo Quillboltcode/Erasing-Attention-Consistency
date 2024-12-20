@@ -37,10 +37,12 @@ class RafDataset(data.Dataset):
 
         # Augmentation functions
         self.flip_transform = transforms.RandomHorizontalFlip(p=1)
+        self.random_erasing = transforms.RandomErasing(p=1, scale=(0.02, 0.2))
         self.aug_func = [flip_image, add_g]
         # self.file_paths = []
         self.clean = (args.label_path == 'list_patition_label.txt')
-        
+        if self.phase == 'train':
+            self.labelshuffle()
     #todo Randomly with ratio and seed change old lable to one of the other
     def labelshuffle(self):
         # random.seed(seed)
@@ -73,7 +75,7 @@ class RafDataset(data.Dataset):
             image = self.transform(image)
         
         if self.clean:
-            image1 = transforms.RandomHorizontalFlip(p=1)(image)
+            image1 = self.random_erasing(image)
 
         return image, label, idx, image1
 
