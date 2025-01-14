@@ -197,6 +197,8 @@ def main():
             test_labels.extend(labels.cpu().numpy())
             test_preds.extend(predicts.cpu().numpy())
     test_cm = confusion_matrix(test_labels, test_preds)
+    #save model 
+    torch.save(model.state_dict(), 'rebuttal_50_noise_'+str(args.label_path)+'.pth')
     class_names = ['1', '2', '3', '4', '5', '6', '7']# 0:Surprise, 1:Fear, 2:Disgust, 3:Happiness, 4:Sadness, 5:Anger, 6:Neutral
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(test_cm, annot=True, cmap='Blues')
