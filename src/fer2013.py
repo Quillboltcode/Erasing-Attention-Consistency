@@ -6,6 +6,7 @@ import pandas as pd
 import random
 from torchvision import transforms
 from utils import *
+import cv2
 
 
 # A fer2013 dataset class from imagefolder that allow basic augmentations and shuffle labels
@@ -65,7 +66,8 @@ class FER2013Dataset(data.Dataset):
         label = self.labels[idx]
 
         # Load image
-        image = Image.open(img_path).convert("RGB")
+        image = cv2.imread(img_path)
+        image = image[:, :, ::-1]
         
         if not self.clean:
             image1 = image
@@ -88,6 +90,7 @@ class FER2013Dataset(data.Dataset):
 if __name__ == "__main__":
     # Define basic augmentations
     transform = transforms.Compose([
+        transforms.ToPILImage(),
         transforms.Resize((224, 224)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
