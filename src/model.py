@@ -39,3 +39,7 @@ class Model(nn.Module):
         hm = hm.sum(2) # N * self.num_labels * H * W
 
         return output, hm
+    
+if __name__ == '__main__':
+    model = Model(args=None)
+    print(model.features[0])

@@ -55,7 +55,7 @@ def generate_flip_grid(w, h, device):
 
 
 def adapt_first_layer(model):
-    first_layer = model.conv1  # Assuming the first layer is named `conv1`
+    first_layer = model.features[0]  # Assuming the first layer is named `conv1`
     new_layer = nn.Conv2d(1, first_layer.out_channels, kernel_size=first_layer.kernel_size, 
                           stride=first_layer.stride, padding=first_layer.padding, bias=False)
     new_layer.weight.data = first_layer.weight.data.mean(dim=1, keepdim=True)  # Average over RGB channels
