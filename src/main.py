@@ -211,6 +211,7 @@ def main():
     # train_dataset = RafDataset(args, ratio=args.ratio, phase='train', transform=train_transforms)
     # test_dataset = RafDataset(args, phase='test', transform=eval_transforms)
     train_transforms = transforms.Compose([
+        transforms.ToPILImage(),
         transforms.Grayscale(num_output_channels=1),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
@@ -219,6 +220,7 @@ def main():
                              std=[std]),])
     
     eval_transforms = transforms.Compose([
+        transforms.ToPILImage(),
         transforms.Grayscale(num_output_channels=1),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
