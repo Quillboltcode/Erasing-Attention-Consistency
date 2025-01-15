@@ -9,10 +9,10 @@ class Model(nn.Module):
     def __init__(self, args, pretrained=True, num_classes=7):
         super(Model, self).__init__()
         resnet50 = ResNet(Bottleneck, [3, 4, 6, 3])
-        with open(args.resnet50_path, 'rb') as f:
-            obj = f.read()
-        weights = {key: torch.from_numpy(arr) for key, arr in pickle.loads(obj, encoding='latin1').items()}
-        resnet50.load_state_dict(weights)
+        # with open(args.resnet50_path, 'rb') as f:
+        #     obj = f.read()
+        # weights = {key: torch.from_numpy(arr) for key, arr in pickle.loads(obj, encoding='latin1').items()}
+        # resnet50.load_state_dict(weights)
         
         self.features = nn.Sequential(*list(resnet50.children())[:-2])  
         self.features2 = nn.Sequential(*list(resnet50.children())[-2:-1])  
@@ -42,4 +42,7 @@ class Model(nn.Module):
     
 if __name__ == '__main__':
     model = Model(args=None)
+    import utils
+    print(model.features[0])
+    utils.adapt_first_layer(model)
     print(model.features[0])
