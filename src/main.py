@@ -12,15 +12,17 @@ import pickle
 import wandb
 import torch
 import torch.nn as nn
-from torchvision import transforms
+from torchvision import transforms,datasets
 import torchvision.models as models
 import torch.utils.data as data
 import torch.nn.functional as F
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 from dataset import RafDataset
+from fer2013 import FER2013Dataset
 from model import Model
 from utils import *
 from resnet import *
@@ -124,30 +126,107 @@ def test(model, test_loader, device):
         test_acc = correct_sum.float() / float(data_num)
     return test_acc, running_loss
         
+def find_high_flip_loss_images(args, model, data_loader, device):
+    """
+    Identify images with flip_loss_l higher than the mean loss of their class.
+    
+    Args:
+        args: Arguments containing hyperparameters and settings.
+        model: Trained model.
+        data_loader: Data loader for the dataset.
+        device: Device for computation (e.g., 'cuda' or 'cpu').
         
+    Returns:
+        high_loss_images (dict): Dictionary mapping class labels to lists of high-loss images.
+    """
+    model.to(device)
+    model.eval()  # Set model to evaluation mode
+
+    # Store losses and images grouped by class
+    class_losses = defaultdict(list)
+    class_images = defaultdict(list)
+    criterion = nn.CrossEntropyLoss(reduction='none')
+
+    with torch.no_grad():
+        for imgs1, labels, _, imgs2 in data_loader:
+            imgs1 = imgs1.to(device)
+            imgs2 = imgs2.to(device)
+            labels = labels.to(device)
+
+            # Forward pass for original and flipped images
+            output, hm1 = model(imgs1)
+            output_flip, hm2 = model(imgs2)
+            
+            # Generate flip grid
+            grid_l = generate_flip_grid(args.w, args.h, device)
+            
+            # Calculate flip loss
+            flip_loss_l = ACLoss(hm1, hm2, grid_l, output)
+
+            # Collect losses and corresponding images by class
+            for i in range(len(labels)):
+                label = labels[i].item()
+                loss = flip_loss_l[i].item()
+                class_losses[label].append(loss)
+                class_images[label].append({
+                    'image': imgs1[i].cpu(),
+                    'loss': loss
+                })
+
+    # Identify high-loss images
+    high_loss_images = defaultdict(list)
+    for label, losses in class_losses.items():
+        mean_loss = sum(losses) / len(losses)
+        for img_data in class_images[label]:
+            if img_data['loss'] > mean_loss:
+                high_loss_images[label].append(img_data)
+
+    return high_loss_images
+
         
 def main():    
     setup_seed(0)
     
+    # train_transforms = transforms.Compose([
+    #     transforms.ToPILImage(),
+    #     transforms.Resize((224, 224)),
+    #     transforms.ToTensor(),
+    #     transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                          std=[0.229, 0.224, 0.225]),
+    #     transforms.RandomErasing(scale=(0.02, 0.25)) ])
+    
+    # eval_transforms = transforms.Compose([
+    #     transforms.ToPILImage(),
+    #     transforms.Resize((224, 224)),
+    #     transforms.ToTensor(),
+    #     transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                          std=[0.229, 0.224, 0.225])])
+    trial_transform = transforms.Compose([
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),
+    ])
+    trial_dataset = datasets.ImageFolder(root=args.raf_path,transform=trial_transform)
+    mean, std = calculate_mean_std(trial_dataset)
+    print(f"Mean: {mean}, Std: {std}")
+    # train_dataset = RafDataset(args, ratio=args.ratio, phase='train', transform=train_transforms)
+    # test_dataset = RafDataset(args, phase='test', transform=eval_transforms)
     train_transforms = transforms.Compose([
-        transforms.ToPILImage(),
+        transforms.Grayscale(num_output_channels=1),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225]),
-        transforms.RandomErasing(scale=(0.02, 0.25)) ])
+        transforms.RandomErasing(scale=(0.02, 0.25)),
+        transforms.Normalize(mean=[mean],
+                             std=[std]),])
     
     eval_transforms = transforms.Compose([
-        transforms.ToPILImage(),
+        transforms.Grayscale(num_output_channels=1),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])])
-    
-    
+        transforms.Normalize(mean=[mean],
+                             std=[std])])
 
-    train_dataset = RafDataset(args, ratio=args.ratio, phase='train', transform=train_transforms)
-    test_dataset = RafDataset(args, phase='test', transform=eval_transforms)
+    train_dataset = FER2013Dataset(root_dir=args.raf_path,phase='train',transform=train_transforms)
+    test_dataset = FER2013Dataset(root_dir=args.raf_path, phase='test', transform=eval_transforms)
     print(f'train: {train_dataset.__len__()}, test: {test_dataset.__len__()}')    
 
 
@@ -184,7 +263,15 @@ def main():
         wandb.log({'Epoch': i, 'Train Loss': train_loss, 'Train Acc': train_acc, 'Test Loss': test_loss, 'Test Acc': test_acc})
         with open('rebuttal_50_noise_'+str(args.label_path)+'.txt', 'a') as f:
             f.write(str(i)+'_'+str(test_acc)+'\n')
-    
+    high_loss_images = find_high_flip_loss_images(args, model, train_loader, device)
+
+    # Display results
+    for cls, images in high_loss_images.items():
+        print(f"Class {cls}: {len(images)} images with high flip loss")
+        for img_data in images:
+            print(f" - Loss: {img_data['loss']}")
+
+            
     test_labels = []
     test_preds = []
     with torch.no_grad():

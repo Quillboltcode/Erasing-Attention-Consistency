@@ -25,12 +25,14 @@ class FER2013Dataset(data.Dataset):
         self.ratio = ratio
         self.data = []
         self.labels = []
-
+        self.image_dir = os.path.join(self.root_dir, phase)
         # Load images and labels
-        self.classes = os.listdir(root_dir)
+        self.classes = os.listdir(self.image_dir)
+       
         self.classes.sort()  # Ensure consistent class order
+        
         for label, class_dir in enumerate(self.classes):
-            class_path = os.path.join(root_dir, class_dir)
+            class_path = os.path.join(self.image_dir, class_dir)
             print(class_path)
             for img_file in os.listdir(class_path):
                 if img_file.endswith(('.png', '.jpg', '.jpeg')):
@@ -98,6 +100,5 @@ if __name__ == "__main__":
     # Check if first image is flipped
     image, label, idx, image1 = dataset[0]
     print(image.shape, label, idx, image1.shape)
-    # Visualize
-    import matplotlib.pyplot as plt
+
     

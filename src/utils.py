@@ -5,6 +5,8 @@ import random
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from torchvision.transforms import ToPILImage
+from torchvision import datasets
+from torch.utils.data import DataLoader
 
 def add_g(image_array, mean=0.0, var=30):
     """
@@ -94,3 +96,27 @@ def visualize_attention(image, attention_maps, class_idx=None):
         ax.axis('off')
         ax.set_title(f"Class {i}" if class_idx is None else f"Class {class_idx}")
     plt.show()
+
+
+def calculate_mean_std(dataset):
+    """
+    Calculate mean and standard deviation of a dataset.
+    Args:
+        dataset: PyTorch dataset.
+    Returns:
+        mean, std: Calculated mean and standard deviation.
+    """
+    loader = DataLoader(dataset, batch_size=64, shuffle=False, num_workers=2)
+    mean = 0.0
+    std = 0.0
+    total_samples = 0
+
+    for images, _ in loader:
+        images = images.view(images.size(0), -1)  # Flatten the images
+        mean += images.mean(1).sum()
+        std += images.std(1).sum()
+        total_samples += images.size(0)
+
+    mean /= total_samples
+    std /= total_samples
+    return mean.item(), std.item()
