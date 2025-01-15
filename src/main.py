@@ -246,7 +246,7 @@ def main():
     
     
     model = Model(args)
-    
+    model = adapt_first_layer(model)    
     device = torch.device('cuda:{}'.format(args.gpu))
     model.to(device)
 
