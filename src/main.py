@@ -256,6 +256,7 @@ def main():
                              std=[std])])
 
     train_dataset = FER2013Dataset(root_dir=args.raf_path,phase='train',transform=train_transforms)
+    val_dataset = FER2013Dataset(root_dir=args.raf_path, phase='val', transform=eval_transforms)
     test_dataset = FER2013Dataset(root_dir=args.raf_path, phase='test', transform=eval_transforms)
     print(f'train: {train_dataset.__len__()}, test: {test_dataset.__len__()}')    
 
@@ -265,6 +266,13 @@ def main():
                                                shuffle=True,
                                                num_workers=args.workers,
                                                pin_memory=True)
+    
+    val_loader = torch.utils.data.DataLoader(val_dataset,
+                                               batch_size=args.batch_size,
+                                               shuffle=False,
+                                               num_workers=args.workers,
+                                               pin_memory=True)
+
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size,
                                               shuffle=False,
                                               num_workers=args.workers,
@@ -289,13 +297,14 @@ def main():
     
     for i in range(1, args.epochs + 1):
         train_acc, train_loss = train(args, model, train_loader, optimizer, scheduler, device)
-        test_acc, test_loss = test(model, test_loader, device)
-        wandb.log({'Epoch': i, 'Train Loss': train_loss, 'Train Acc': train_acc, 'Test Loss': test_loss, 'Test Acc': test_acc})
+        val_acc, val_loss = test(model, val_loader, device)
+        wandb.log({'Epoch': i, 'Train Loss': train_loss, 'Train Acc': train_acc, 'val Loss': val_loss, 'val Acc': val_acc})
         with open('rebuttal_50_noise_'+str(args.label_path)+'.txt', 'a') as f:
-            f.write(str(i)+'_'+str(test_acc)+'\n')
+            f.write(str(i)+'_'+str(val_acc)+'\n')
 
 
-            
+    test_acc, test_loss = test(model, test_loader, device)
+    wandb.log({'test Loss': test_loss, 'test Acc': test_acc})        
     test_labels = []
     test_preds = []
     with torch.no_grad():
@@ -323,7 +332,7 @@ def main():
     plt.savefig('conf_mat.png', dpi=300)
     wandb.log({"Confusion Matrix": [wandb.Image("conf_mat.png", caption="Confusion Matrix")]})
 
-    # todo: run on both
+    # todo: run on both train and val and test
     results = find_high_flip_loss_images(args, model, train_loader, device)
 
     # Extract high-loss images and mean losses
@@ -349,6 +358,8 @@ def main():
         "class": cls,
         "mean_loss": mean_loss,
     })
+        
+    
 
     run.finish()
 
