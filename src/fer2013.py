@@ -84,7 +84,7 @@ class FER2013Dataset(data.Dataset):
         if self.clean:
             image1 = self.flip_transform(image)
 
-        return image, label, idx, image1
+        return image, label, idx, image1, img_path
 
 # Example usage
 if __name__ == "__main__":
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     dataset = FER2013Dataset(root_dir="/mnt/c/Freelancing/Grenwich/FGW/efficient-fer/Erasing-Attention-Consistency/data", transform=transform, shuffle_labels=True)
 
     # Check if first image is flipped
-    image, label, idx, image1 = dataset[0]
-    print(image.shape, label, idx, image1.shape)
+    image, label, idx, image1, img_path = dataset[0]
+    print(image.shape, label, idx, image1.shape, img_path)
 
     

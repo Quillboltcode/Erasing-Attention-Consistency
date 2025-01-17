@@ -20,6 +20,7 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from numpy import percentile
 
 from dataset import RafDataset
 from fer2013 import FER2013Dataset
@@ -52,7 +53,7 @@ def train(args, model, train_loader, optimizer, scheduler, device):
     model.train()
 
     total_loss = []
-    for batch_i, (imgs1, labels, indexes, imgs2) in enumerate(train_loader):
+    for batch_i, (imgs1, labels, indexes, imgs2,_ ) in enumerate(train_loader):
         imgs1 = imgs1.to(device)
         imgs2 = imgs2.to(device)
         labels = labels.to(device)
@@ -103,7 +104,7 @@ def test(model, test_loader, device):
         data_num = 0
 
 
-        for batch_i, (imgs1, labels, indexes, imgs2) in enumerate(test_loader):
+        for batch_i, (imgs1, labels, indexes, imgs2, _) in enumerate(test_loader):
             imgs1 = imgs1.to(device)
             labels = labels.to(device)
 
@@ -148,7 +149,7 @@ def find_high_flip_loss_images(args, model, data_loader, device):
     criterion = nn.CrossEntropyLoss(reduction='none')
 
     with torch.no_grad():
-        for imgs1, labels, _, imgs2 in data_loader:
+        for imgs1, labels, _, imgs2, img_paths in data_loader:  # Ensure img_paths is used
             imgs1 = imgs1.to(device)
             imgs2 = imgs2.to(device)
             labels = labels.to(device)
@@ -156,32 +157,59 @@ def find_high_flip_loss_images(args, model, data_loader, device):
             # Forward pass for original and flipped images
             output, hm1 = model(imgs1)
             output_flip, hm2 = model(imgs2)
-            
+
             # Generate flip grid
             grid_l = generate_flip_grid(args.w, args.h, device)
-            
-            # Calculate flip loss
-            flip_loss_l = ACLoss(hm1, hm2, grid_l, output)
 
-            # Collect losses and corresponding images by class
+            # Calculate loss for each image in the batch
+            flip_loss_l = []
+            for i in range(len(labels)):
+                hm1_single = hm1[i].unsqueeze(0)  # (1, 7, 7, 7)
+                hm2_single = hm2[i].unsqueeze(0)  # (1, 7, 7, 7)
+                loss = ACLoss(hm1_single, hm2_single, grid_l, output[i].unsqueeze(0))  # scalar
+                flip_loss_l.append(loss.item())  # Convert scalar tensor to Python float
+
+            # Collect losses, images, and paths by class
             for i in range(len(labels)):
                 label = labels[i].item()
-                loss = flip_loss_l[i].item()
+                loss = flip_loss_l[i]  # Already a Python float
                 class_losses[label].append(loss)
                 class_images[label].append({
                     'image': imgs1[i].cpu(),
-                    'loss': loss
+                    'loss': loss,
+                    'path': img_paths[i]  # Include image path
                 })
 
-    # Identify high-loss images
+    # Identify high-loss images and calculate mean losses
+    # Calculate high-loss images using the IQR method
     high_loss_images = defaultdict(list)
+    mean_losses = {}
+
     for label, losses in class_losses.items():
+        # Calculate mean loss for reference
         mean_loss = sum(losses) / len(losses)
+        mean_losses[label] = mean_loss  # Store the mean loss for each class
+
+        # Calculate 75th percentile (Q3) and interquartile range (IQR)
+        q3 = percentile(losses, 75)  # 75th percentile
+        q1 = percentile(losses, 25)  # 25th percentile
+        iqr = q3 - q1
+
+        # Define threshold as Q3 + 1.5 * IQR
+        threshold = q3 + 1.5 * iqr
+
+        # Identify high-loss images based on the threshold
         for img_data in class_images[label]:
-            if img_data['loss'] > mean_loss:
+            if img_data['loss'] > threshold:
                 high_loss_images[label].append(img_data)
 
-    return high_loss_images
+    # Return both high-loss images and mean losses
+    return {
+        "high_loss_images": high_loss_images,
+        "mean_losses": mean_losses
+    }
+
+
 
         
 def main():    
@@ -253,7 +281,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters() , lr=0.0001, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
-    run = wandb.init(project='raf-db', name='rebuttal_50_noise_'+str(args.label_path),
+    run = wandb.init(project='fer2013-eac', name='rebuttal_50_noise_'+str(args.label_path),
                      config={'batch_size': args.batch_size, 'epochs': args.epochs, 'lr': 0.0001, 'weight_decay': 1e-4, 'ratio': args.ratio})
     
    
@@ -265,13 +293,7 @@ def main():
         wandb.log({'Epoch': i, 'Train Loss': train_loss, 'Train Acc': train_acc, 'Test Loss': test_loss, 'Test Acc': test_acc})
         with open('rebuttal_50_noise_'+str(args.label_path)+'.txt', 'a') as f:
             f.write(str(i)+'_'+str(test_acc)+'\n')
-    high_loss_images = find_high_flip_loss_images(args, model, train_loader, device)
 
-    # Display results
-    for cls, images in high_loss_images.items():
-        print(f"Class {cls}: {len(images)} images with high flip loss")
-        for img_data in images:
-            print(f" - Loss: {img_data['loss']}")
 
             
     test_labels = []
@@ -300,6 +322,34 @@ def main():
     ax.yaxis.set_ticklabels(class_names)
     plt.savefig('conf_mat.png', dpi=300)
     wandb.log({"Confusion Matrix": [wandb.Image("conf_mat.png", caption="Confusion Matrix")]})
+
+    # todo: run on both
+    results = find_high_flip_loss_images(args, model, train_loader, device)
+
+    # Extract high-loss images and mean losses
+    high_loss_images = results["high_loss_images"]
+    mean_losses = results["mean_losses"]
+
+    # Print results for high-loss images
+    # log with wandb
+    high_loss_table = results["high_loss_images"]
+    for cls, images in high_loss_images.items():
+        print(f"Class {cls}: {len(images)} images with high flip loss")
+        for img_data in images:
+                  wandb.log({
+            "class": cls,
+            "loss": img_data['loss'],
+            "image_path": img_data['path'],
+        })
+        wandb.log({f"Class {cls} high flip loss images": len(images)})
+    # Print mean losses for each class
+    for cls, mean_loss in mean_losses.items():
+        print(f"Mean loss for class {cls}: {mean_loss:.4f}")
+        wandb.log({
+        "class": cls,
+        "mean_loss": mean_loss,
+    })
+
     run.finish()
 
 
