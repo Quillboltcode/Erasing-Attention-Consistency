@@ -243,7 +243,6 @@ def main():
         transforms.Grayscale(num_output_channels=1),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.RandomErasing(scale=(0.02, 0.25)),
         transforms.Normalize(mean=[mean],
                              std=[std]),])
     
@@ -302,14 +301,14 @@ def main():
         with open('rebuttal_50_noise_'+str(args.label_path)+'.txt', 'a') as f:
             f.write(str(i)+'_'+str(val_acc)+'\n')
 
-
+    torch.save(model.state_dict(), 'res_50_13_'+str(args.label_path)+'.pth')
     test_acc, test_loss = test(model, test_loader, device)
     wandb.log({'test Loss': test_loss, 'test Acc': test_acc})        
     test_labels = []
     test_preds = []
     with torch.no_grad():
         model.eval()
-        for batch_i, (imgs1, labels, indexes, imgs2) in enumerate(test_loader):
+        for batch_i, (imgs1, labels, indexes, imgs2,_) in enumerate(test_loader):
             imgs1 = imgs1.to(device)
             labels = labels.to(device)
             output, _ = model(imgs1)
@@ -318,7 +317,7 @@ def main():
             test_preds.extend(predicts.cpu().numpy())
     test_cm = confusion_matrix(test_labels, test_preds)
     #save model 
-    torch.save(model.state_dict(), 'rebuttal_50_noise_'+str(args.label_path)+'.pth')
+    
     class_names = ['1', '2', '3', '4', '5', '6', '7']# 0:Surprise, 1:Fear, 2:Disgust, 3:Happiness, 4:Sadness, 5:Anger, 6:Neutral
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(test_cm, annot=True, cmap='Blues')
@@ -340,7 +339,7 @@ def main():
     mean_losses = results["mean_losses"]
 
     # Print results for high-loss images
-    # log with wandb
+    # log with wandb and write to file
     high_loss_table = results["high_loss_images"]
     for cls, images in high_loss_images.items():
         print(f"Class {cls}: {len(images)} images with high flip loss")
