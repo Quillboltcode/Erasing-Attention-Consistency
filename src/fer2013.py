@@ -98,7 +98,7 @@ if __name__ == "__main__":
     ])
 
     # Create dataset instance
-    dataset = FER2013Dataset(root_dir="/mnt/c/Freelancing/Grenwich/FGW/efficient-fer/Erasing-Attention-Consistency/data", transform=transform, shuffle_labels=True)
+    dataset = FER2013Dataset(root_dir="/mnt/c/Freelancing/Grenwich/FGW/efficient-fer/Erasing-Attention-Consistency/data/org_fer2013", transform=transform, shuffle_labels=True)
 
     # Check if first image is flipped
     image, label, idx, image1, img_path = dataset[0]

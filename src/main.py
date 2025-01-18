@@ -70,8 +70,9 @@ def train(args, model, train_loader, optimizer, scheduler, device):
         
 
         loss1 = nn.CrossEntropyLoss()(output, labels)
+        wandb.log(("ce_loss", loss1))
         flip_loss_l = ACLoss(hm1, hm2, grid_l, output)
-
+        wandb.log(("flip_loss", flip_loss_l))
 
         loss = loss1 + args.lam * flip_loss_l
 
@@ -90,7 +91,7 @@ def train(args, model, train_loader, optimizer, scheduler, device):
     scheduler.step()
     running_loss = running_loss / iter_cnt
     acc = correct_sum.float() / float(train_loader.dataset.__len__())
-    return acc, running_loss
+    return acc, running_loss, loss1, flip_loss_l
 
 
     
@@ -318,8 +319,9 @@ def main():
     test_cm = confusion_matrix(test_labels, test_preds)
     test_cm = test_cm.astype('int')
     #save model 
-    
-    class_names = ['1', '2', '3', '4', '5', '6', '7']# 1:Surprise, 2:Fear, 3:Disgust, 4:Happiness, 5:Sadness, 6:Anger, 7:Neutral
+    # fer2013 class name is label
+    class_names= ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
+    #class_names = ['1', '2', '3', '4', '5', '6', '7']# 1:Surprise, 2:Fear, 3:Disgust, 4:Happiness, 5:Sadness, 6:Anger, 7:Neutral
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(test_cm, annot=True, cmap='Blues')
 
