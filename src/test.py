@@ -39,7 +39,7 @@ def test_find_high_flip_loss_images():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     # Create random dataset and dataloader
-    dataset = RandomDataset(num_samples=100, img_size=224, num_classes=5)
+    dataset = FER2013Dataset(root_dir="/mnt/c/Freelancing/Grenwich/FGW/efficient-fer/Erasing-Attention-Consistency/data", transform=None, shuffle_labels=True)
     data_loader = DataLoader(dataset, batch_size=15, shuffle=True)
 
     # Initialize mock model
@@ -53,11 +53,15 @@ def test_find_high_flip_loss_images():
     mean_losses = results["mean_losses"]
 
     # Print results for high-loss images
-    for cls, images in high_loss_images.items():
-        print(f"Class {cls}: {len(images)} images with high flip loss")
-        for img_data in images:
-            print(f" - Loss: {img_data['loss']:.4f}")
-            print(f" - Path: {img_data['path']}")
+    with open("high_loss_images.txt", "w") as f:
+        for cls, images in high_loss_images.items():
+            print(f"Class {cls}: {len(images)} images with high flip loss")
+            f.write(f"Class {cls}: {len(images)} images with high flip loss\n")
+            for img_data in images:
+                print(f" - Loss: {img_data['loss']:.4f}")
+                f.write(f" - Loss: {img_data['loss']:.4f}")
+                print(f" - Path: {img_data['path']}")
+                f.write(f"\t - Path: {img_data['path']}\n")
 
     # Print mean losses for each class
     for cls, mean_loss in mean_losses.items():

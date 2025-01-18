@@ -39,3 +39,6 @@ __pycache__/
 *.bak
 *.tmp
 *.swp
+
+# data folder
+data/org_fer2013/*

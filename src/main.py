@@ -316,9 +316,10 @@ def main():
             test_labels.extend(labels.cpu().numpy())
             test_preds.extend(predicts.cpu().numpy())
     test_cm = confusion_matrix(test_labels, test_preds)
+    test_cm = test_cm.astype('int')
     #save model 
     
-    class_names = ['1', '2', '3', '4', '5', '6', '7']# 0:Surprise, 1:Fear, 2:Disgust, 3:Happiness, 4:Sadness, 5:Anger, 6:Neutral
+    class_names = ['1', '2', '3', '4', '5', '6', '7']# 1:Surprise, 2:Fear, 3:Disgust, 4:Happiness, 5:Sadness, 6:Anger, 7:Neutral
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(test_cm, annot=True, cmap='Blues')
 
@@ -339,24 +340,22 @@ def main():
     mean_losses = results["mean_losses"]
 
     # Print results for high-loss images
-    # log with wandb and write to file
+    # log with write to text file
+
     high_loss_table = results["high_loss_images"]
-    for cls, images in high_loss_images.items():
-        print(f"Class {cls}: {len(images)} images with high flip loss")
-        for img_data in images:
-                  wandb.log({
-            "class": cls,
-            "loss": img_data['loss'],
-            "image_path": img_data['path'],
-        })
-        wandb.log({f"Class {cls} high flip loss images": len(images)})
-    # Print mean losses for each class
-    for cls, mean_loss in mean_losses.items():
-        print(f"Mean loss for class {cls}: {mean_loss:.4f}")
-        wandb.log({
-        "class": cls,
-        "mean_loss": mean_loss,
-    })
+    with open('rebuttal_50_noise_'+str(args.label_path)+'.txt', 'a') as f:
+        for cls, images in high_loss_images.items():
+            f.write(f"Class {cls}: {len(images)} images with high flip loss\n")
+            print(f"Class {cls}: {len(images)} images with high flip loss")
+            for img_data in images:
+                f.write(f"Loss: {img_data['loss']:.4f}")
+                print(f"Loss: {img_data['loss']:.4f}")
+                f.write(f"\tPath: {img_data['path']}\n")
+                print(f"\tPath: {img_data['path']}")    
+        # Print mean losses for each class
+        for cls, mean_loss in mean_losses.items():
+            print(f"Mean loss for class {cls}: {mean_loss:.4f}")
+            f.write(f"Mean loss for class {cls}: {mean_loss:.4f}\n")
         
     
 
