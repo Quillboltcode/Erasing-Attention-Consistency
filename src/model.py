@@ -9,10 +9,13 @@ class Model(nn.Module):
     def __init__(self, args, pretrained=True, num_classes=7):
         super(Model, self).__init__()
         resnet50 = ResNet(Bottleneck, [3, 4, 6, 3])
-        with open(args.resnet50_path, 'rb') as f:
-            obj = f.read()
-        weights = {key: torch.from_numpy(arr) for key, arr in pickle.loads(obj, encoding='latin1').items()}
-        resnet50.load_state_dict(weights)
+        # todo: add if else to check if pretrained or not
+        if pretrained:
+            # Load from ms-celeb-1m pkl
+            with open(args.resnet50_path, 'rb') as f:
+                obj = f.read()
+            weights = {key: torch.from_numpy(arr) for key, arr in pickle.loads(obj, encoding='latin1').items()}
+            resnet50.load_state_dict(weights)
         
         self.features = nn.Sequential(*list(resnet50.children())[:-2])  
         self.features2 = nn.Sequential(*list(resnet50.children())[-2:-1])  

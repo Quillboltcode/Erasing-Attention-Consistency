@@ -295,9 +295,17 @@ def main():
    
     
     
+    # Save best loss model as well for fer2013
+    best_loss = float('inf')    
     for i in range(1, args.epochs + 1):
         train_acc, train_loss = train(args, model, train_loader, optimizer, scheduler, device)
         val_acc, val_loss = test(model, val_loader, device)
+        if val_loss < best_loss:
+            best_loss = val_loss
+            # Remove previous best loss model
+            if os.path.exists('best_loss_res_50_13_'+str(args.label_path)+'.pth'):
+                os.remove('best_loss_res_50_13_'+str(args.label_path)+'.pth')
+            torch.save(model.state_dict(), 'best_loss_res_50_13_'+str(args.label_path)+'.pth')
         wandb.log({'Epoch': i, 'Train Loss': train_loss, 'Train Acc': train_acc, 'val Loss': val_loss, 'val Acc': val_acc})
         with open('rebuttal_50_noise_'+str(args.label_path)+'.txt', 'a') as f:
             f.write(str(i)+'_'+str(val_acc)+'\n')

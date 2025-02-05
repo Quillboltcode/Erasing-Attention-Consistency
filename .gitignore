@@ -42,3 +42,6 @@ __pycache__/
 
 # data folder
 data/org_fer2013/*
+
+# log folder
+log/*
