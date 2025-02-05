@@ -341,6 +341,9 @@ def main():
     ax.yaxis.set_ticklabels(class_names)
     plt.savefig('conf_mat.png', dpi=300)
     wandb.log({"Confusion Matrix": [wandb.Image("conf_mat.png", caption="Confusion Matrix")]})
+    
+    # load from best loss checkpoint
+    model.load_state_dict(torch.load('best_loss_res_50_13_'+str(args.label_path)+'.pth'))
 
     # todo: run on both train and val and test
     results = find_high_flip_loss_images(args, model, train_loader, device)
