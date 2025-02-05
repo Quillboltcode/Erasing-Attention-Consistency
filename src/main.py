@@ -70,9 +70,7 @@ def train(args, model, train_loader, optimizer, scheduler, device):
         
 
         loss1 = nn.CrossEntropyLoss()(output, labels)
-        wandb.log(("ce_loss", loss1))
         flip_loss_l = ACLoss(hm1, hm2, grid_l, output)
-        wandb.log(("flip_loss", flip_loss_l))
 
         loss = loss1 + args.lam * flip_loss_l
 
