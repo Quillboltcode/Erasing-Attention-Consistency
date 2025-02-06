@@ -363,6 +363,10 @@ def main():
             f.write(str(i) + "_" + str(val_acc) + "\n")
 
     torch.save(model.state_dict(), "res_50_13_" + str(args.label_path) + ".pth")
+    print("save last epoch model")
+    print("==== Test ====")
+    print("Loading from best loss model")
+    model.load_state_dict(torch.load("best_loss_res_50_13_" + str(args.label_path) + ".pth"))
     test_acc, test_loss = test(model, test_loader, device)
     wandb.log({"test Loss": test_loss, "test Acc": test_acc})
     test_labels = []
@@ -383,7 +387,7 @@ def main():
     class_names = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
     # class_names = ['1', '2', '3', '4', '5', '6', '7']# 1:Surprise, 2:Fear, 3:Disgust, 4:Happiness, 5:Sadness, 6:Anger, 7:Neutral
     fig, ax = plt.subplots(figsize=(10, 10))
-    sns.heatmap(test_cm, annot=True, cmap="Blues")
+    sns.heatmap(test_cm, annot=True, fmt="d", ax=ax,cmap="Blues")
 
     # Labels, title and custom x-axis labels
     ax.set_xlabel("Predicted labels")
@@ -397,6 +401,7 @@ def main():
     )
 
     # load from best loss checkpoint
+    print("Loading from best loss model")
     model.load_state_dict(
         torch.load("best_loss_res_50_13_" + str(args.label_path) + ".pth")
     )
