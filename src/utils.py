@@ -8,7 +8,7 @@ from torchvision.transforms import ToPILImage
 from torchvision import datasets
 from torch.utils.data import DataLoader
 from scipy.ndimage import gaussian_filter
-
+# from scipy.stats import entropy 
 def add_g(image_array, mean=0.0, var=30):
     """
     Add Gaussian noise to an image array.
@@ -113,6 +113,14 @@ def visualize_attention(image, flip_image, attention_maps, flip_attention_maps, 
 
     # Normalize and smooth the attention maps
     attention_maps = attention_maps.cpu().detach()
+    # measure attention metrics wwith entropy, gini and attention spread
+    attention_entropy_metric = attention_entropy(attention_maps)
+    attention_spread_metric = attention_spread(attention_maps)
+    attention_gini = gini_coefficient(attention_maps) 
+    print(f'Attention entropy: {attention_entropy_metric}')
+    print(f'Attention spread: {attention_spread_metric}')
+    print(f'Attention gini: {attention_gini}')
+    
     attention_maps = (attention_maps - attention_maps.min()) / (attention_maps.max() - attention_maps.min() + 1e-8)
     attention_maps = interpolate(attention_maps, size=(224, 224), mode='bilinear', align_corners=False).numpy()
     attention_maps = gaussian_filter(attention_maps, sigma=2)
@@ -148,10 +156,10 @@ def visualize_attention(image, flip_image, attention_maps, flip_attention_maps, 
         axes[1][i].set_title(f"Flipped - Class {i}" if class_idx is None else f"Flipped - Class {class_idx}")
 
     plt.tight_layout()
-    # plt.show()
+    plt.show()
 
-    # Save the plot
-    plt.savefig(f'../log/attention_maps/attention_maps_{image_name}_{class_idx}.png')
+    # # Save the plot
+    # plt.savefig(f'../log/attention_maps_mediapipe/attention_maps_{image_name}_{class_idx}.png')
     plt.close()
 
 
@@ -204,3 +212,115 @@ def process_image(img_name, net, MEAN, STD, utils, class_idx=5):
     new_img_name = img_name.replace("/", "_").replace(".jpg", "")
     # Visualize attention maps side by side
     visualize_attention(img, flip_img, att, flip_att, new_img_name,class_idx=class_idx)
+
+
+# Shanon entropy to quantify focus
+
+def attention_entropy(attn_map):
+    """
+    Compute the entropy of the attention map to measure focus vs. spread.
+    
+    Parameters:
+        attn_map (torch.Tensor): Attention map of shape (1, C, H, W).
+        
+    Returns:
+        float: Mean entropy across channels.
+    """
+    # Ensure it's on the correct device and detach from computation graph
+    attn_map = attn_map.detach()
+
+    # Flatten spatial dimensions (keep batch & channels)
+    B, C, H, W = attn_map.shape
+    attn_map = attn_map.view(B, C, -1)  # Shape: (1, C, H*W)
+
+    # Normalize attention values to sum to 1 per channel
+    attn_sum = attn_map.sum(dim=-1, keepdim=True)
+    attn_sum[attn_sum == 0] = 1  # Avoid division by zero
+    attn_map = attn_map / attn_sum  
+
+    # Apply small epsilon to avoid log(0) issues
+    attn_map = torch.clamp(attn_map, min=1e-8, max=1)  # Clamping ensures valid log input
+
+    # Compute entropy: H = -sum(p * log(p))
+    entropy = -torch.sum(attn_map * torch.log(attn_map), dim=-1)  # Shape: (1, C)
+
+    # Return mean entropy across channels
+    return entropy.mean().item()
+
+def gini_coefficient(attn_map):
+    """
+    Compute the Gini coefficient for an attention map of shape (1, C, H, W).
+    
+    Parameters:
+        attn_map (numpy array or torch.Tensor): Attention map of shape (1, C, H, W).
+        
+    Returns:
+        float: Gini coefficient (0 = equal distribution, 1 = highly concentrated).
+    """
+    # Ensure it's a NumPy array
+    if isinstance(attn_map, np.ndarray):
+        attn_map = attn_map.flatten()  # Flatten to (C*H*W)
+    else:
+        attn_map = attn_map.detach().cpu().numpy().flatten()  # Convert PyTorch tensor to NumPy & flatten
+
+    # Ensure non-negative values (important for stability)
+    attn_map = np.clip(attn_map, 0, None)
+
+    # Normalize to prevent negative Gini values
+    attn_map = attn_map / (attn_map.sum() + 1e-8)  # Avoid division by zero
+
+    # Sort values (ascending)
+    attn_map.sort()
+
+    # Compute Gini coefficient using the standard formula
+    n = len(attn_map)
+    index = np.arange(1, n + 1)  # Rank index
+    gini = (2 * np.sum(index * attn_map) / np.sum(attn_map) - (n + 1)) / n
+
+    return max(0.0, min(gini, 1.0))  # Clamp between 0 and 1 to ensure validity
+
+
+
+def attention_spread(attn_map):
+    """
+    Compute the spread of the attention map in a PyTorch tensor.
+    
+    Parameters:
+        attn_map (torch.Tensor): Attention map of shape (1, C, H, W).
+        
+    Returns:
+        float: Mean attention spread across channels.
+    # """
+    # print("Shape of attn_map:", attn_map.shape)  # Debugging
+
+    _, C, H, W = attn_map.shape  # Extract dimensions
+
+    # Create meshgrid for pixel coordinates
+    y, x = torch.meshgrid(torch.arange(H, device=attn_map.device), 
+                          torch.arange(W, device=attn_map.device), indexing='ij')
+
+    # Convert to float for computations
+    x, y = x.float(), y.float()
+
+    spread_values = []
+    for c in range(C):
+        attn = attn_map[0, c]  # Extract attention for this channel
+        
+        attn_sum = attn.sum()
+        if attn_sum == 0:  
+            spread_values.append(0.0)  # Avoid division by zero
+            continue
+
+        # Compute weighted mean location
+        x_mean = (x * attn).sum() / attn_sum
+        y_mean = (y * attn).sum() / attn_sum
+
+        # Compute Euclidean distance from center
+        center_x, center_y = W // 2, H // 2
+        spread = torch.sqrt((x_mean - center_x) ** 2 + (y_mean - center_y) ** 2)
+
+        spread_values.append(spread.item())  # Convert tensor to float
+
+    # Return mean spread across channels
+    return sum(spread_values) / len(spread_values) if spread_values else 0.0
+  

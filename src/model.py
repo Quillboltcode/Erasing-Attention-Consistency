@@ -21,6 +21,7 @@ class Model(nn.Module):
         self.features2 = nn.Sequential(*list(resnet50.children())[-2:-1])  
         self.fc = nn.Linear(2048, 7)  
         
+
         
     def forward(self, x):        
         x = self.features(x)
